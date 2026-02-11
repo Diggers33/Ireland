@@ -151,7 +151,7 @@ const btn={padding:"10px 20px",fontSize:13,fontWeight:600,border:"none",borderRa
 // ============================================================
 // MAIN
 // ============================================================
-const LABEL_W=280; const ROW_H=80; const SECTION_H=44; const OCCUPANCY_H=28;
+const LABEL_W=280; const ROW_H=48; const SECTION_H=36; const OCCUPANCY_H=24;
 
 export default function Home(){
   const[tournaments,setTournaments]=useState(defaultTournaments);
@@ -355,13 +355,13 @@ export default function Home(){
               return(
                 <div key={t.id}>
                   <div onMouseEnter={()=>setHoveredId(t.id)} onMouseLeave={()=>setHoveredId(null)}
-                    style={{display:"grid",gridTemplateColumns:"1fr 120px 120px 120px 100px 180px",padding:"16px 24px",borderBottom:hasDetails?"none":`1px solid ${colors.slate[100]}`,background:hov?`${colors.slate[50]}80`:"transparent",alignItems:"center",transition:"background 0.15s",cursor:"default"}}>
+                    style={{display:"grid",gridTemplateColumns:"1fr 120px 120px 120px 100px 180px",padding:"10px 24px",borderBottom:hasDetails?"none":`1px solid ${colors.slate[100]}`,background:hov?`${colors.slate[50]}80`:"transparent",alignItems:"center",transition:"background 0.15s",cursor:"default"}}>
                     {/* Tournament name with accent bar */}
                     <div style={{display:"flex",alignItems:"flex-start",gap:14}}>
-                      <div style={{width:4,height:48,borderRadius:4,background:pc.bar,flexShrink:0,marginTop:2}}/>
+                      <div style={{width:4,height:28,borderRadius:4,background:pc.bar,flexShrink:0}}/>
                       <div>
-                        <div style={{fontSize:15,fontWeight:600,color:colors.slate[900],marginBottom:6,lineHeight:1.3}}>{t.name}</div>
-                        <span style={{fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:pc.text,background:pc.bg,padding:"3px 10px",borderRadius:6,border:`1px solid ${pc.border}`}}>{t.province}</span>
+                        <div style={{fontSize:14,fontWeight:600,color:colors.slate[900],marginBottom:3,lineHeight:1.2}}>{t.name}</div>
+                        <span style={{fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:pc.text,background:pc.bg,padding:"2px 8px",borderRadius:4,border:`1px solid ${pc.border}`}}>{t.province}</span>
                       </div>
                     </div>
                     {/* Dates */}
@@ -422,9 +422,9 @@ export default function Home(){
                   return(
                     <div key={row.id} onMouseEnter={()=>setHoveredId(row.id)} onMouseLeave={()=>setHoveredId(null)}
                       style={{height:ROW_H,display:"flex",alignItems:"center",paddingLeft:16,paddingRight:10,gap:12,borderBottom:`1px solid ${colors.slate[100]}`,background:hov?`${colors.slate[50]}80`:"transparent",cursor:"pointer",transition:"background 0.15s"}}>
-                      <div style={{width:4,height:40,borderRadius:4,background:pc.bar,flexShrink:0}}/>
+                      <div style={{width:4,height:24,borderRadius:4,background:pc.bar,flexShrink:0}}/>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:13,fontWeight:hov?700:600,color:hov?colors.slate[900]:colors.slate[700],whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginBottom:4}}>{row.name}</div>
+                        <div style={{fontSize:13,fontWeight:hov?700:600,color:hov?colors.slate[900]:colors.slate[700],whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginBottom:2}}>{row.name}</div>
                         <span style={{fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:pc.text,background:pc.bg,padding:"2px 8px",borderRadius:4,border:`1px solid ${pc.border}`}}>{row.province}</span>
                       </div>
                     </div>
@@ -443,9 +443,9 @@ export default function Home(){
                     return(
                       <div key={row.id} onMouseEnter={()=>setHoveredId(row.id)} onMouseLeave={()=>setHoveredId(null)}
                         style={{height:ROW_H,display:"flex",alignItems:"center",paddingLeft:16,paddingRight:10,gap:12,borderBottom:`1px solid ${colors.slate[100]}`,background:hov?`${colors.slate[50]}80`:"transparent",cursor:"pointer",transition:"background 0.15s"}}>
-                        <div style={{width:4,height:40,borderRadius:4,background:pc2.bar,flexShrink:0}}/>
+                        <div style={{width:4,height:24,borderRadius:4,background:pc2.bar,flexShrink:0}}/>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,fontWeight:hov?700:600,color:hov?colors.slate[900]:colors.slate[700],marginBottom:4}}>{row.platform}</div>
+                          <div style={{fontSize:13,fontWeight:hov?700:600,color:hov?colors.slate[900]:colors.slate[700],marginBottom:2}}>{row.platform}</div>
                           <span style={{fontSize:11,color:colors.slate[400],fontFamily:"monospace"}}>{row.dates}</span>
                         </div>
                       </div>
@@ -493,7 +493,7 @@ export default function Home(){
                         {resolution==="day"&&allDays.filter(d=>d.isWeekend).map(d=>(<div key={`we-${d.index}`} style={{position:"absolute",left:d.index*unitW,top:0,width:unitW,height:ROW_H,background:"rgba(0,0,0,0.015)"}}/>))}
                         {tIdx>=0&&<div style={{position:"absolute",left:dayToPx(tIdx)+(resolution==="day"?unitW/2:0),top:0,width:2,height:ROW_H,background:colors.red[500],opacity:0.2,zIndex:5}}/>}
                         {/* Bar */}
-                        <div style={{position:"absolute",left:left+2,width:w-4,top:20,height:32,background:pc.bar,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",zIndex:10,transition:"all 0.15s",boxShadow:hov?`0 4px 12px ${pc.bar}30`:`0 1px 3px ${pc.bar}15`,overflow:"hidden"}}>
+                        <div style={{position:"absolute",left:left+2,width:w-4,top:10,height:28,background:pc.bar,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",zIndex:10,transition:"all 0.15s",boxShadow:hov?`0 4px 12px ${pc.bar}30`:`0 1px 3px ${pc.bar}15`,overflow:"hidden"}}>
                           
                         </div>
                         {hov&&(<div style={{position:"absolute",left:Math.min(left+w+12,chartWidth-280),top:"50%",transform:"translateY(-50%)",background:"#fff",border:`1px solid ${colors.slate[200]}`,borderRadius:10,padding:"8px 14px",boxShadow:"0 8px 24px rgba(0,0,0,0.12)",zIndex:20,whiteSpace:"nowrap",fontSize:13,color:colors.slate[600],display:"flex",gap:10,alignItems:"center"}}>
@@ -537,10 +537,10 @@ export default function Home(){
                         <div key={row.id} onMouseEnter={()=>setHoveredId(row.id)} onMouseLeave={()=>setHoveredId(null)} style={{height:ROW_H,position:"relative",borderBottom:`1px solid ${colors.slate[100]}`,background:hov?`${colors.slate[50]}80`:"transparent",transition:"background 0.15s"}}>
                           {resolution==="day"&&allDays.filter(d=>d.isWeekend).map(d=>(<div key={`we-${d.index}`} style={{position:"absolute",left:d.index*unitW,top:0,width:unitW,height:ROW_H,background:"rgba(0,0,0,0.015)"}}/>))}
                           {tIdx>=0&&<div style={{position:"absolute",left:dayToPx(tIdx)+(resolution==="day"?unitW/2:0),top:0,width:2,height:ROW_H,background:colors.red[500],opacity:0.2,zIndex:5}}/>}
-                          <div style={{position:"absolute",left:left+2,width:w-4,top:20,height:32,background:pc2.bar,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",zIndex:10,transition:"all 0.15s",boxShadow:hov?`0 4px 12px ${pc2.bar}30`:`0 1px 3px ${pc2.bar}15`,overflow:"hidden"}}/>
+                          <div style={{position:"absolute",left:left+2,width:w-4,top:10,height:28,background:pc2.bar,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",zIndex:10,transition:"all 0.15s",boxShadow:hov?`0 4px 12px ${pc2.bar}30`:`0 1px 3px ${pc2.bar}15`,overflow:"hidden"}}/>
                           {/* Overlap indicators on bar */}
-                          {overlapsPrev&&<div style={{position:"absolute",left:left-1,top:18,width:6,height:36,background:colors.amber[500],borderRadius:"4px 0 0 4px",zIndex:11,opacity:0.9}} title="Same-day check-in/out"/>}
-                          {overlapsNext&&<div style={{position:"absolute",left:left+w-7,top:18,width:6,height:36,background:colors.amber[500],borderRadius:"0 4px 4px 0",zIndex:11,opacity:0.9}} title="Same-day check-in/out"/>}
+                          {overlapsPrev&&<div style={{position:"absolute",left:left-1,top:8,width:6,height:32,background:colors.amber[500],borderRadius:"4px 0 0 4px",zIndex:11,opacity:0.9}} title="Same-day check-in/out"/>}
+                          {overlapsNext&&<div style={{position:"absolute",left:left+w-7,top:8,width:6,height:32,background:colors.amber[500],borderRadius:"0 4px 4px 0",zIndex:11,opacity:0.9}} title="Same-day check-in/out"/>}
                           {hov&&(<div style={{position:"absolute",left:Math.min(left+w+12,chartWidth-240),top:"50%",transform:"translateY(-50%)",background:"#fff",border:`1px solid ${colors.slate[200]}`,borderRadius:10,padding:"8px 14px",boxShadow:"0 8px 24px rgba(0,0,0,0.12)",zIndex:20,whiteSpace:"nowrap",fontSize:13,color:colors.slate[600],display:"flex",gap:10,alignItems:"center"}}>
                             <span style={{fontWeight:700,color:colors.slate[900]}}>{row.platform}</span>
                             <span>{row.dates}</span>
