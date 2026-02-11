@@ -152,8 +152,8 @@ function matchToTournament(booking, tournaments) {
   let bestDist = Infinity;
 
   for (const t of tournaments) {
-    const tStart = new Date(2025, t.start[0], t.start[1]);
-    const tEnd = new Date(2025, t.end[0], t.end[1]);
+    const tStart = new Date(2026, t.start[0], t.start[1]);
+    const tEnd = new Date(2026, t.end[0], t.end[1]);
 
     // Check if booking date is within 3 days before tournament start to tournament end
     const daysBefore = (tStart - bookingDate) / (1000 * 60 * 60 * 24);

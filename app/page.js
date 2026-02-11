@@ -67,7 +67,7 @@ function buildDays() {
   let index = 0;
   for (let m = 0; m < 7; m++) {
     for (let d = 1; d <= mDays[m]; d++) {
-      const date = new Date(2025, mIdx[m], d);
+      const date = new Date(2026, mIdx[m], d);
       const dow = date.getDay();
       days.push({ index, day: d, month: mIdx[m], monthName: mNames[m], isMonday: dow === 1, isWeekend: dow === 0 || dow === 6 });
       index++;
@@ -133,7 +133,7 @@ function parseDate(str) {
 // PERSISTENCE: Supabase with localStorage fallback
 // ============================================================
 const SUPABASE_TABLE = "schedule_data";
-const LOCAL_KEY = "ireland-schedule-2025";
+const LOCAL_KEY = "ireland-schedule-2026";
 
 async function loadData() {
   // Try Supabase first
@@ -489,7 +489,7 @@ export default function Home() {
         {/* Header */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <div style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", color: "#4f46e5", fontWeight: 600 }}>2025 Season</div>
+            <div style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", color: "#4f46e5", fontWeight: 600 }}>2026 Season</div>
             {saving && <div style={{ fontSize: 10, color: "#94a3b8", background: "#f1f5f9", padding: "2px 8px", borderRadius: 4 }}>Saving...</div>}
             {!saving && loaded && supabase && <div style={{ fontSize: 10, color: "#16a34a", background: "#f0fdf4", padding: "2px 8px", borderRadius: 4 }}>● Synced</div>}
             {!supabase && loaded && <div style={{ fontSize: 10, color: "#f59e0b", background: "#fffbeb", padding: "2px 8px", borderRadius: 4 }}>Local only</div>}
