@@ -494,7 +494,7 @@ export default function Home(){
                         {tIdx>=0&&<div style={{position:"absolute",left:dayToPx(tIdx)+(resolution==="day"?unitW/2:0),top:0,width:2,height:ROW_H,background:colors.red[500],opacity:0.2,zIndex:5}}/>}
                         {/* Bar */}
                         <div style={{position:"absolute",left:left+2,width:w-4,top:20,height:32,background:pc.bar,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",zIndex:10,transition:"all 0.15s",boxShadow:hov?`0 4px 12px ${pc.bar}30`:`0 1px 3px ${pc.bar}15`,overflow:"hidden"}}>
-                          {w>40&&<span style={{fontSize:11,fontWeight:700,color:"#fff",whiteSpace:"nowrap",padding:"0 8px"}}>{row.dates}</span>}
+                          
                         </div>
                         {hov&&(<div style={{position:"absolute",left:Math.min(left+w+12,chartWidth-280),top:"50%",transform:"translateY(-50%)",background:"#fff",border:`1px solid ${colors.slate[200]}`,borderRadius:10,padding:"8px 14px",boxShadow:"0 8px 24px rgba(0,0,0,0.12)",zIndex:20,whiteSpace:"nowrap",fontSize:13,color:colors.slate[600],display:"flex",gap:10,alignItems:"center"}}>
                           <span style={{fontWeight:700,color:colors.slate[900]}}>{row.name}</span>
@@ -514,24 +514,37 @@ export default function Home(){
                       {occSpans.map((span,si)=>{const left=dayToPx(span.start);const w=durationToPx(span.start,span.end);const sd2=span.end-span.start+1;
                         return(<div key={si} style={{position:"absolute",left,width:w,top:4,bottom:4,background:span.booked?colors.red[500]:colors.emerald[500],borderRadius:4,opacity:0.6,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>{w>28&&<span style={{fontSize:9,fontWeight:700,color:"#fff"}}>{sd2}d</span>}</div>);
                       })}
+                      {/* Overlap markers — where one booking ends and another starts same day */}
+                      {sortedB.map((b,bi)=>{
+                        const bEnd=dayIndex(b.end[0],b.end[1]);
+                        const overlapping=sortedB.filter((b2,b2i)=>b2i!==bi&&dayIndex(b2.start[0],b2.start[1])===bEnd);
+                        return overlapping.map((b2,oi)=>{
+                          const px=dayToPx(bEnd)+(resolution==="day"?unitW/2:0);
+                          return <div key={`ov-${b.id}-${b2.id}`} style={{position:"absolute",left:px-6,top:0,bottom:0,width:12,background:`repeating-linear-gradient(45deg,${colors.amber[500]},${colors.amber[500]} 2px,transparent 2px,transparent 4px)`,opacity:0.8,zIndex:8,borderRadius:2}} title={`Overlap: ${b.platform} checkout / ${b2.platform} check-in`}/>;
+                        });
+                      })}
                     </div>
 
                     {/* Booking bars */}
-                    {sortedB.map(row=>{
+                    {sortedB.map((row,ri)=>{
                       const si=dayIndex(row.start[0],row.start[1]);const ei=dayIndex(row.end[0],row.end[1]);if(si<0||ei<0)return null;
-                      const dur=ei-si+1;const hov=hoveredId===row.id;const pc2=platformColors[row.platform];
+                      const hov=hoveredId===row.id;const pc2=platformColors[row.platform];
                       const left=dayToPx(si);const w=Math.max(durationToPx(si,ei),resolution==="month"?8:unitW-2);
+                      // Check if this booking overlaps with previous (starts same day previous ends)
+                      const overlapsPrev=sortedB.some((b2,b2i)=>b2i!==ri&&dayIndex(b2.end[0],b2.end[1])===si);
+                      const overlapsNext=sortedB.some((b2,b2i)=>b2i!==ri&&dayIndex(b2.start[0],b2.start[1])===ei);
                       return(
                         <div key={row.id} onMouseEnter={()=>setHoveredId(row.id)} onMouseLeave={()=>setHoveredId(null)} style={{height:ROW_H,position:"relative",borderBottom:`1px solid ${colors.slate[100]}`,background:hov?`${colors.slate[50]}80`:"transparent",transition:"background 0.15s"}}>
                           {resolution==="day"&&allDays.filter(d=>d.isWeekend).map(d=>(<div key={`we-${d.index}`} style={{position:"absolute",left:d.index*unitW,top:0,width:unitW,height:ROW_H,background:"rgba(0,0,0,0.015)"}}/>))}
                           {tIdx>=0&&<div style={{position:"absolute",left:dayToPx(tIdx)+(resolution==="day"?unitW/2:0),top:0,width:2,height:ROW_H,background:colors.red[500],opacity:0.2,zIndex:5}}/>}
-                          <div style={{position:"absolute",left:left+2,width:w-4,top:20,height:32,background:pc2.bar,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",zIndex:10,transition:"all 0.15s",boxShadow:hov?`0 4px 12px ${pc2.bar}30`:`0 1px 3px ${pc2.bar}15`,overflow:"hidden"}}>
-                            {w>40&&<span style={{fontSize:11,fontWeight:700,color:"#fff",whiteSpace:"nowrap",padding:"0 8px"}}>{row.dates}</span>}
-                          </div>
+                          <div style={{position:"absolute",left:left+2,width:w-4,top:20,height:32,background:pc2.bar,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",zIndex:10,transition:"all 0.15s",boxShadow:hov?`0 4px 12px ${pc2.bar}30`:`0 1px 3px ${pc2.bar}15`,overflow:"hidden"}}/>
+                          {/* Overlap indicators on bar */}
+                          {overlapsPrev&&<div style={{position:"absolute",left:left-1,top:18,width:6,height:36,background:colors.amber[500],borderRadius:"4px 0 0 4px",zIndex:11,opacity:0.9}} title="Same-day check-in/out"/>}
+                          {overlapsNext&&<div style={{position:"absolute",left:left+w-7,top:18,width:6,height:36,background:colors.amber[500],borderRadius:"0 4px 4px 0",zIndex:11,opacity:0.9}} title="Same-day check-in/out"/>}
                           {hov&&(<div style={{position:"absolute",left:Math.min(left+w+12,chartWidth-240),top:"50%",transform:"translateY(-50%)",background:"#fff",border:`1px solid ${colors.slate[200]}`,borderRadius:10,padding:"8px 14px",boxShadow:"0 8px 24px rgba(0,0,0,0.12)",zIndex:20,whiteSpace:"nowrap",fontSize:13,color:colors.slate[600],display:"flex",gap:10,alignItems:"center"}}>
                             <span style={{fontWeight:700,color:colors.slate[900]}}>{row.platform}</span>
                             <span>{row.dates}</span>
-                            <span style={{fontSize:10,fontWeight:700,color:pc2.text,background:pc2.bg,padding:"2px 8px",borderRadius:4}}>{row.platform}</span>
+                            {(overlapsPrev||overlapsNext)&&<span style={{fontSize:10,fontWeight:700,color:colors.amber[600],background:colors.amber[50],padding:"2px 8px",borderRadius:4,border:`1px solid ${colors.amber[100]}`}}>⚠ Same-day turnover</span>}
                           </div>)}
                         </div>
                       );
