@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Ireland Schedule 2025',
+  title: 'Ireland Schedule 2026',
   description: 'Tournament & booking schedule tracker',
 };
 
