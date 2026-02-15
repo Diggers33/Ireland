@@ -167,18 +167,21 @@ export default function Home(){
   const[dragId,setDragId]=useState(null);
   const[isMobile,setIsMobile]=useState(false);
   const[expandedId,setExpandedId]=useState(null);
+  const[editItem,setEditItem]=useState(null); // {id, type} for edit popup
+  const[barDrag,setBarDrag]=useState(null); // {id, type, mode:'move'|'resizeL'|'resizeR', origStart, origEnd, startX}
 
   const sRef=useRef(null);const isDrag=useRef(false);const dStartX=useRef(0);const dScrollL=useRef(0);
   const saveTO=useRef(null);const isRemote=useRef(false);const lastHash=useRef("");
+  const barDragRef=useRef(null); // keep sync copy for mousemove
   const tI=todayIdx();
 
   // Detect mobile
   useEffect(()=>{const c=()=>setIsMobile(window.innerWidth<768);c();window.addEventListener("resize",c);return()=>window.removeEventListener("resize",c);},[]);
 
-  // Drag scroll
-  const mDown=(e)=>{if(!sRef.current)return;isDrag.current=true;dStartX.current=e.pageX-sRef.current.offsetLeft;dScrollL.current=sRef.current.scrollLeft;sRef.current.style.cursor="grabbing";};
-  const mMove=(e)=>{if(!isDrag.current||!sRef.current)return;e.preventDefault();sRef.current.scrollLeft=dScrollL.current-(e.pageX-sRef.current.offsetLeft-dStartX.current)*1.5;};
-  const mUp=()=>{isDrag.current=false;if(sRef.current)sRef.current.style.cursor="grab";};
+  // Drag scroll (disabled when bar-dragging)
+  const mDown=(e)=>{if(!sRef.current||barDragRef.current)return;isDrag.current=true;dStartX.current=e.pageX-sRef.current.offsetLeft;dScrollL.current=sRef.current.scrollLeft;sRef.current.style.cursor="grabbing";};
+  const mMove=(e)=>{if(!isDrag.current||!sRef.current||barDragRef.current)return;e.preventDefault();sRef.current.scrollLeft=dScrollL.current-(e.pageX-sRef.current.offsetLeft-dStartX.current)*1.5;};
+  const mUp=()=>{isDrag.current=false;if(sRef.current&&!barDragRef.current)sRef.current.style.cursor="grab";};
 
   // Load
   useEffect(()=>{
@@ -220,6 +223,82 @@ export default function Home(){
   function dur2px(s,e){return d2px(e+1)-d2px(s);}
   const cW=res==="day"?totalDays*uW:res==="week"?wks.length*uW:mSpans.length*uW;
   useEffect(()=>{if(sRef.current&&tI>=0)sRef.current.scrollLeft=Math.max(0,d2px(tI)-300);},[view,res]);
+
+  // Pixel to day index (inverse of d2px)
+  function px2dIdx(px){
+    if(res==="day")return Math.round(px/uW);
+    if(res==="week"){const wi=px/uW;const wIdx=Math.floor(wi);if(wIdx<0||wIdx>=wks.length)return 0;const w=wks[wIdx];const frac=wi-wIdx;return w.s+Math.round(frac*(w.e-w.s+1));}
+    const mi=px/uW;const mIdx=Math.floor(mi);if(mIdx<0||mIdx>=mSpans.length)return 0;const m=mSpans[mIdx];const frac=mi-mIdx;return m.s+Math.round(frac*(m.e-m.s+1));
+  }
+  function dIdxToDate(di){const d=allDays[Math.max(0,Math.min(di,allDays.length-1))];return d?[d.month,d.day]:null;}
+
+  // Bar drag/resize handlers
+  const barHandleDown=(e,id,type,mode)=>{
+    e.stopPropagation();e.preventDefault();
+    const item=type==="tournament"?ts.find(t=>t.id===id):bs.find(b=>b.id===id);if(!item)return;
+    const chartEl=sRef.current;if(!chartEl)return;
+    const rect=chartEl.getBoundingClientRect();
+    const scrollX=chartEl.scrollLeft;
+    const startPx=e.clientX-rect.left+scrollX;
+    const bd={id,type,mode,origStart:[...item.start],origEnd:[...item.end],startPx,
+      origSi:dIdx(item.start[0],item.start[1]),origEi:dIdx(item.end[0],item.end[1])};
+    setBarDrag(bd);barDragRef.current=bd;
+    setEditItem(null);
+  };
+
+  useEffect(()=>{
+    if(!barDrag)return;
+    const chartEl=sRef.current;if(!chartEl)return;
+    const rect=chartEl.getBoundingClientRect();
+
+    const onMove=(e)=>{
+      const bd=barDragRef.current;if(!bd)return;
+      const scrollX=chartEl.scrollLeft;
+      const curPx=e.clientX-rect.left+scrollX;
+      const deltaDays=px2dIdx(curPx)-px2dIdx(bd.startPx);
+      if(deltaDays===0)return;
+
+      const update=(item)=>{
+        let newSi=bd.origSi,newEi=bd.origEi;
+        if(bd.mode==="move"){newSi+=deltaDays;newEi+=deltaDays;}
+        else if(bd.mode==="resizeL"){newSi+=deltaDays;if(newSi>newEi)newSi=newEi;}
+        else if(bd.mode==="resizeR"){newEi+=deltaDays;if(newEi<newSi)newEi=newSi;}
+        newSi=Math.max(0,Math.min(newSi,allDays.length-1));
+        newEi=Math.max(0,Math.min(newEi,allDays.length-1));
+        const ns=dIdxToDate(newSi);const ne=dIdxToDate(newEi);
+        if(!ns||!ne)return item;
+        return{...item,start:ns,end:ne,dates:fmtDate(ns,ne)};
+      };
+
+      if(bd.type==="tournament")setTs(p=>p.map(t=>t.id===bd.id?update(t):t));
+      else setBs(p=>p.map(b=>b.id===bd.id?update(b):b));
+    };
+
+    const onUp=()=>{setBarDrag(null);barDragRef.current=null;};
+    window.addEventListener("mousemove",onMove);
+    window.addEventListener("mouseup",onUp);
+    return()=>{window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);};
+  },[barDrag]);
+
+  // Bar cursor helper — detect edge vs middle
+  const barCursor=(e,barLeft,barWidth)=>{
+    const rect=e.currentTarget.getBoundingClientRect();
+    const x=e.clientX-rect.left;
+    if(x<8)return"resizeL";if(x>rect.width-8)return"resizeR";return"move";
+  };
+  const cursorStyle=(mode)=>mode==="resizeL"||mode==="resizeR"?"ew-resize":"grab";
+
+  // Edit popup for click on bar
+  const handleBarClick=(e,id,type)=>{
+    if(barDragRef.current)return; // was dragging
+    e.stopPropagation();
+    setEditItem(editItem?.id===id?null:{id,type});
+  };
+  const deleteItem=(id,type)=>{
+    if(type==="tournament")setTs(p=>p.filter(t=>t.id!==id));
+    else setBs(p=>p.filter(b=>b.id!==id));
+    setEditItem(null);
+  };
 
   const occ=buildOcc(bs);const occSp=buildOccSpans(occ);
   const bDays=occ.filter(Boolean).length;const oRate=Math.round((bDays/totalDays)*100);
@@ -476,7 +555,7 @@ export default function Home(){
                 </div>
 
                 {/* Chart */}
-                <div ref={sRef} style={{flex:1,overflowX:"auto",overflowY:"hidden",cursor:"grab"}} onMouseDown={mDown} onMouseMove={mMove} onMouseUp={mUp} onMouseLeave={mUp}>
+                <div ref={sRef} style={{flex:1,overflowX:"auto",overflowY:"hidden",cursor:"grab"}} onMouseDown={mDown} onMouseMove={mMove} onMouseUp={mUp} onMouseLeave={mUp} onClick={()=>setEditItem(null)}>
                   <div style={{width:cW,position:"relative"}}>
                     {/* Headers */}
                     {res==="day"?(<>
@@ -492,12 +571,37 @@ export default function Home(){
 
                     {/* Tournament section row */}
                     <div style={{height:SH,background:C.s[50],borderBottom:`1px solid ${C.s[200]}`}}/>
-                    {tOpen&&sortT.map(r=>{const si=dIdx(r.start[0],r.start[1]);const ei=dIdx(r.end[0],r.end[1]);if(si<0||ei<0)return null;const h2=hov===r.id;const pc=provC[r.province];const l=d2px(si);const w=Math.max(dur2px(si,ei),res==="month"?8:uW-2);
-                      return(<div key={r.id} onMouseEnter={()=>setHov(r.id)} onMouseLeave={()=>setHov(null)} style={{height:RH,position:"relative",borderBottom:`1px solid ${C.s[100]}`,background:h2?`${C.s[50]}80`:r.priority?`${C.a[50]}40`:"transparent",transition:"background 0.15s"}}>
+                    {tOpen&&sortT.map(r=>{const si=dIdx(r.start[0],r.start[1]);const ei=dIdx(r.end[0],r.end[1]);if(si<0||ei<0)return null;const h2=hov===r.id;const pc=provC[r.province];const l=d2px(si);const w=Math.max(dur2px(si,ei),res==="month"?8:uW-2);const isDragging=barDrag?.id===r.id;
+                      return(<div key={r.id} onMouseEnter={()=>!barDrag&&setHov(r.id)} onMouseLeave={()=>!barDrag&&setHov(null)} style={{height:RH,position:"relative",borderBottom:`1px solid ${C.s[100]}`,background:h2?`${C.s[50]}80`:r.priority?`${C.a[50]}40`:"transparent",transition:isDragging?"none":"background 0.15s"}}>
                         {res==="day"&&allDays.filter(d=>d.isWeekend).map(d=>(<div key={`w${d.index}`} style={{position:"absolute",left:d.index*uW,top:0,width:uW,height:RH,background:"rgba(0,0,0,0.015)"}}/>))}
                         {tI>=0&&<div style={{position:"absolute",left:d2px(tI)+(res==="day"?uW/2:0),top:0,width:2,height:RH,background:C.r[500],opacity:0.2,zIndex:5}}/>}
-                        <div style={{position:"absolute",left:l+2,width:w-4,top:10,height:28,background:pc.bar,borderRadius:6,zIndex:10,transition:"all 0.15s",boxShadow:h2?`0 3px 10px ${pc.bar}30`:`0 1px 3px ${pc.bar}15`}}/>
-                        {h2&&<div style={{position:"absolute",left:Math.min(l+w+10,cW-260),top:"50%",transform:"translateY(-50%)",background:"#fff",border:`1px solid ${C.s[200]}`,borderRadius:8,padding:"6px 12px",boxShadow:"0 6px 20px rgba(0,0,0,0.1)",zIndex:20,whiteSpace:"nowrap",fontSize:12,color:C.s[600],display:"flex",gap:8,alignItems:"center"}}><span style={{fontWeight:700,color:C.s[900]}}>{r.name}</span><span>{r.dates}</span>{r.venue&&<span style={{color:C.s[400]}}>📍 {r.venue}</span>}</div>}
+                        {/* Draggable bar */}
+                        <div
+                          onMouseDown={e=>{const mode=barCursor(e,l,w);barHandleDown(e,r.id,"tournament",mode);}}
+                          onMouseMove={e=>{if(!barDrag){const mode=barCursor(e,l,w);e.currentTarget.style.cursor=cursorStyle(mode);}}}
+                          onClick={e=>handleBarClick(e,r.id,"tournament")}
+                          style={{position:"absolute",left:l,width:w,top:8,height:32,background:pc.bar,borderRadius:6,zIndex:10,
+                            boxShadow:isDragging?`0 6px 20px ${pc.bar}40`:h2?`0 3px 10px ${pc.bar}30`:`0 1px 3px ${pc.bar}15`,
+                            opacity:isDragging?0.85:1,cursor:"grab",userSelect:"none",
+                            display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          {/* Resize handles visual */}
+                          <div style={{position:"absolute",left:2,top:"50%",transform:"translateY(-50%)",width:3,height:14,borderRadius:2,background:"rgba(255,255,255,0.5)"}}/>
+                          <div style={{position:"absolute",right:2,top:"50%",transform:"translateY(-50%)",width:3,height:14,borderRadius:2,background:"rgba(255,255,255,0.5)"}}/>
+                          {w>60&&<span style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.9)",whiteSpace:"nowrap",padding:"0 10px"}}>{r.dates}</span>}
+                        </div>
+                        {/* Edit popup */}
+                        {editItem?.id===r.id&&<div style={{position:"absolute",left:Math.min(l,cW-240),top:RH-2,background:"#fff",border:`1px solid ${C.s[200]}`,borderRadius:10,padding:12,boxShadow:"0 8px 30px rgba(0,0,0,0.15)",zIndex:30,width:220}} onClick={e=>e.stopPropagation()}>
+                          <div style={{fontSize:12,fontWeight:700,color:C.s[900],marginBottom:8}}>{r.name}</div>
+                          <div style={{fontSize:11,color:C.s[500],marginBottom:4}}>{r.dates} 2026</div>
+                          <div style={{fontSize:11,color:C.s[500],marginBottom:8}}>📍 {r.venue||"No venue set"}</div>
+                          <div style={{fontSize:10,color:C.s[400],marginBottom:8}}>Drag edges to resize • Drag middle to move</div>
+                          <div style={{display:"flex",gap:6}}>
+                            <button onClick={()=>togglePri(r.id)} style={{...btnS,fontSize:10,padding:"4px 10px",background:r.priority?C.a[50]:"#fff",color:r.priority?C.a[600]:C.s[500],border:`1px solid ${r.priority?C.a[100]:C.s[200]}`}}>{r.priority?"★ Priority":"☆ Set Priority"}</button>
+                            <button onClick={()=>deleteItem(r.id,"tournament")} style={{...btnS,fontSize:10,padding:"4px 10px",background:C.r[50],color:C.r[600],border:`1px solid ${C.r[100]}`}}>Delete</button>
+                            <button onClick={()=>setEditItem(null)} style={{...btnS,fontSize:10,padding:"4px 10px",background:C.s[50],color:C.s[500],border:`1px solid ${C.s[200]}`}}>Close</button>
+                          </div>
+                        </div>}
+                        {h2&&!editItem&&!barDrag&&<div style={{position:"absolute",left:Math.min(l+w+10,cW-260),top:"50%",transform:"translateY(-50%)",background:"#fff",border:`1px solid ${C.s[200]}`,borderRadius:8,padding:"6px 12px",boxShadow:"0 6px 20px rgba(0,0,0,0.1)",zIndex:20,whiteSpace:"nowrap",fontSize:12,color:C.s[600],display:"flex",gap:8,alignItems:"center",pointerEvents:"none"}}><span style={{fontWeight:700,color:C.s[900]}}>{r.name}</span><span>{r.dates}</span>{r.venue&&<span style={{color:C.s[400]}}>📍 {r.venue}</span>}</div>}
                       </div>);
                     })}
 
@@ -508,15 +612,37 @@ export default function Home(){
                         {occSp.map((sp,si)=>{const l=d2px(sp.s);const w=dur2px(sp.s,sp.e);const n=sp.e-sp.s+1;return(<div key={si} style={{position:"absolute",left:l,width:w,top:4,bottom:4,background:sp.booked?C.r[500]:C.e[500],borderRadius:3,opacity:0.6,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>{w>24&&<span style={{fontSize:8,fontWeight:700,color:"#fff"}}>{n}d</span>}</div>);})}
                         {sortB.map((b,bi)=>{const bEnd=dIdx(b.end[0],b.end[1]);return sortB.filter((b2,b2i)=>b2i!==bi&&dIdx(b2.start[0],b2.start[1])===bEnd).map(b2=>{const px=d2px(bEnd)+(res==="day"?uW/2:0);return<div key={`o${b.id}${b2.id}`} style={{position:"absolute",left:px-5,top:0,bottom:0,width:10,background:`repeating-linear-gradient(45deg,${C.a[500]},${C.a[500]} 2px,transparent 2px,transparent 4px)`,opacity:0.7,zIndex:8,borderRadius:2}} title="Same-day turnover"/>;});})}
                       </div>
-                      {sortB.map((r,ri)=>{const si=dIdx(r.start[0],r.start[1]);const ei=dIdx(r.end[0],r.end[1]);if(si<0||ei<0)return null;const h2=hov===r.id;const pc2=platC[r.platform];const l=d2px(si);const w=Math.max(dur2px(si,ei),res==="month"?8:uW-2);
+                      {sortB.map((r,ri)=>{const si=dIdx(r.start[0],r.start[1]);const ei=dIdx(r.end[0],r.end[1]);if(si<0||ei<0)return null;const h2=hov===r.id;const pc2=platC[r.platform];const l=d2px(si);const w=Math.max(dur2px(si,ei),res==="month"?8:uW-2);const isDragging=barDrag?.id===r.id;
                         const oprev=sortB.some((b2,b2i)=>b2i!==ri&&dIdx(b2.end[0],b2.end[1])===si);const onext=sortB.some((b2,b2i)=>b2i!==ri&&dIdx(b2.start[0],b2.start[1])===ei);
-                        return(<div key={r.id} onMouseEnter={()=>setHov(r.id)} onMouseLeave={()=>setHov(null)} style={{height:RH,position:"relative",borderBottom:`1px solid ${C.s[100]}`,background:h2?`${C.s[50]}80`:"transparent",transition:"background 0.15s"}}>
+                        return(<div key={r.id} onMouseEnter={()=>!barDrag&&setHov(r.id)} onMouseLeave={()=>!barDrag&&setHov(null)} style={{height:RH,position:"relative",borderBottom:`1px solid ${C.s[100]}`,background:h2?`${C.s[50]}80`:"transparent",transition:isDragging?"none":"background 0.15s"}}>
                           {res==="day"&&allDays.filter(d=>d.isWeekend).map(d=>(<div key={`w${d.index}`} style={{position:"absolute",left:d.index*uW,top:0,width:uW,height:RH,background:"rgba(0,0,0,0.015)"}}/>))}
                           {tI>=0&&<div style={{position:"absolute",left:d2px(tI)+(res==="day"?uW/2:0),top:0,width:2,height:RH,background:C.r[500],opacity:0.2,zIndex:5}}/>}
-                          <div style={{position:"absolute",left:l+2,width:w-4,top:10,height:28,background:pc2.bar,borderRadius:6,zIndex:10,transition:"all 0.15s",boxShadow:h2?`0 3px 10px ${pc2.bar}30`:`0 1px 3px ${pc2.bar}15`}}/>
+                          {/* Draggable bar */}
+                          <div
+                            onMouseDown={e=>{const mode=barCursor(e,l,w);barHandleDown(e,r.id,"booking",mode);}}
+                            onMouseMove={e=>{if(!barDrag){const mode=barCursor(e,l,w);e.currentTarget.style.cursor=cursorStyle(mode);}}}
+                            onClick={e=>handleBarClick(e,r.id,"booking")}
+                            style={{position:"absolute",left:l,width:w,top:8,height:32,background:pc2.bar,borderRadius:6,zIndex:10,
+                              boxShadow:isDragging?`0 6px 20px ${pc2.bar}40`:h2?`0 3px 10px ${pc2.bar}30`:`0 1px 3px ${pc2.bar}15`,
+                              opacity:isDragging?0.85:1,cursor:"grab",userSelect:"none",
+                              display:"flex",alignItems:"center",justifyContent:"center"}}>
+                            <div style={{position:"absolute",left:2,top:"50%",transform:"translateY(-50%)",width:3,height:14,borderRadius:2,background:"rgba(255,255,255,0.5)"}}/>
+                            <div style={{position:"absolute",right:2,top:"50%",transform:"translateY(-50%)",width:3,height:14,borderRadius:2,background:"rgba(255,255,255,0.5)"}}/>
+                            {w>60&&<span style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.9)",whiteSpace:"nowrap",padding:"0 10px"}}>{r.dates}</span>}
+                          </div>
                           {oprev&&<div style={{position:"absolute",left:l-1,top:8,width:5,height:32,background:C.a[500],borderRadius:"3px 0 0 3px",zIndex:11,opacity:0.8}}/>}
                           {onext&&<div style={{position:"absolute",left:l+w-6,top:8,width:5,height:32,background:C.a[500],borderRadius:"0 3px 3px 0",zIndex:11,opacity:0.8}}/>}
-                          {h2&&<div style={{position:"absolute",left:Math.min(l+w+10,cW-220),top:"50%",transform:"translateY(-50%)",background:"#fff",border:`1px solid ${C.s[200]}`,borderRadius:8,padding:"6px 12px",boxShadow:"0 6px 20px rgba(0,0,0,0.1)",zIndex:20,whiteSpace:"nowrap",fontSize:12,color:C.s[600],display:"flex",gap:8,alignItems:"center"}}><span style={{fontWeight:700,color:C.s[900]}}>{r.platform}</span><span>{r.dates}</span>{(oprev||onext)&&<span style={{fontSize:10,fontWeight:700,color:C.a[600],background:C.a[50],padding:"1px 6px",borderRadius:4}}>⚠ Turnover</span>}</div>}
+                          {/* Edit popup */}
+                          {editItem?.id===r.id&&<div style={{position:"absolute",left:Math.min(l,cW-220),top:RH-2,background:"#fff",border:`1px solid ${C.s[200]}`,borderRadius:10,padding:12,boxShadow:"0 8px 30px rgba(0,0,0,0.15)",zIndex:30,width:200}} onClick={e=>e.stopPropagation()}>
+                            <div style={{fontSize:12,fontWeight:700,color:C.s[900],marginBottom:4}}>{r.platform}</div>
+                            <div style={{fontSize:11,color:C.s[500],marginBottom:8}}>{r.dates} 2026</div>
+                            <div style={{fontSize:10,color:C.s[400],marginBottom:8}}>Drag edges to resize • Drag middle to move</div>
+                            <div style={{display:"flex",gap:6}}>
+                              <button onClick={()=>deleteItem(r.id,"booking")} style={{...btnS,fontSize:10,padding:"4px 10px",background:C.r[50],color:C.r[600],border:`1px solid ${C.r[100]}`}}>Delete</button>
+                              <button onClick={()=>setEditItem(null)} style={{...btnS,fontSize:10,padding:"4px 10px",background:C.s[50],color:C.s[500],border:`1px solid ${C.s[200]}`}}>Close</button>
+                            </div>
+                          </div>}
+                          {h2&&!editItem&&!barDrag&&<div style={{position:"absolute",left:Math.min(l+w+10,cW-220),top:"50%",transform:"translateY(-50%)",background:"#fff",border:`1px solid ${C.s[200]}`,borderRadius:8,padding:"6px 12px",boxShadow:"0 6px 20px rgba(0,0,0,0.1)",zIndex:20,whiteSpace:"nowrap",fontSize:12,color:C.s[600],display:"flex",gap:8,alignItems:"center",pointerEvents:"none"}}><span style={{fontWeight:700,color:C.s[900]}}>{r.platform}</span><span>{r.dates}</span>{(oprev||onext)&&<span style={{fontSize:10,fontWeight:700,color:C.a[600],background:C.a[50],padding:"1px 6px",borderRadius:4}}>⚠ Turnover</span>}</div>}
                         </div>);
                       })}
                     </>}
